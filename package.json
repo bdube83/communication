@@ -1,0 +1,39 @@
+{
+  "name": "communication",
+  "version": "1.0.0",
+  "description": "Common Spots Communication Service",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon server.js",
+    "debug": "ndb server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/bdube83/communication.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bdube83/communication/issues"
+  },
+  "author": "Lindokuhle & Bongani",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^7.2.0",
+    "fs": "^0.0.1-security",
+    "helmet": "^7.1.0",
+    "hpp": "^0.2.3",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.5.0",
+    "mongoose": "^8.2.0",
+    "mongoose-unique-validator": "^5.0.0",
+    "nodemailer": "^6.9.12",
+    "nodemon": "^3.1.0",
+    "socket.io": "^4.7.5",
+    "validator": "^13.11.0",
+    "xss-clean": "^0.1.4"
+  }
+}
