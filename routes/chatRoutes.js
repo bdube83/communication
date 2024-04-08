@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.use(authController.protect)
 
-router.route('/:recipient/:sender')
+router.route('/:sender/:recipient')
     .get(
       chatController.getChatByUsers)
     .post(

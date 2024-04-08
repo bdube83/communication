@@ -33,8 +33,7 @@ const chatSchema = new mongoose.Schema(
           },
           coordinates: {
               type: [Number],
-              required: [false, 'A location spot must have latitude and longitude values'],
-              default: [30.849718, -29.844833],
+              required: [true, 'A location spot must have latitude and longitude values'],
               validate: [twoDimentionalcoordinates, 'Coordinates should contain lat and long values separated by a comma']
           },
       },
