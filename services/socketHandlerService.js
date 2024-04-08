@@ -96,18 +96,6 @@ async function handleRoomEntry(socket, io, email, password) {
 }
 
 /**
- * Handles user leaving a room.
- * @param {object} socket - The socket object representing the connection.
- * @param {object} io - The Socket.IO server instance.
- * @param {string} room - The name of the room.
- * @param {string} name - The name of the user.
- */
-function handleLeaveRoom(socket, io, room, name) {
-    socket.leave(room);
-    io.to(room).emit('message', buildMsg(ADMIN, `${name} has left the room`));
-}
-
-/**
  * Notifies user and broadcasts to room that user has joined.
  * @param {object} socket - The socket object representing the connection.
  * @param {object} user - The user object.
@@ -191,10 +179,11 @@ function buildMsg(name, text) {
 
 /**
  * Activates a user with provided id, name, and room.
- * @param {string} id - The unique identifier of the user.
+ * @param {string} id - The unique identifier of the user from socket.
  * @param {string} name - The name of the user.
  * @param {string} room - The room the user is joining.
  * @param {string} token - The token of the user.
+ * @param {string} userID - UserID from mongoDB.
  * @returns {object} - The activated user object.
  */
 function activateUser(id, name, room, token, userID) {
@@ -223,6 +212,54 @@ function userLeavesApp(id) {
  */
 function getUser(id) {
     return UsersState.users.find(user => user.id === id);
+}
+
+/**
+ * Retrieves connected users for a given user ID.
+ * @param {string} userId - The ID of the user.
+ * @param {object} socket - The socket object representing the connection.
+ * @returns {Array} - An array of connected user IDs.
+ */
+async function getConnectedUsers(userId, socket) {
+    const { token, userId: senderId } = getUser(socket.id);
+    try {
+        const response = await fetch(`http://localhost:3200/api/v1/users/${senderId}/connections`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+        const data = await response.json();
+        return data.connectedUsers.map(user => user._id);
+    } catch (error) {
+        console.error('Error retrieving connected users:', error.message);
+        return [];
+    }
+}
+
+/**
+ * Saves a message to the database.
+ * @param {object} messageBody - The name of the user sending the message.
+ * @param {string} recipientId - The text of the message.
+ * @param {object} socket - The socket object representing the connection.
+ */
+async function saveMessageToDatabase(messageBody, recipientId, socket) {
+    const { token, userId: senderId } = getUser(socket.id);
+    try {
+        await fetch(`http://localhost:3200/api/v1/chats/${senderId}/${recipientId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                messageBody,
+            }),
+        });
+    } catch (error) {
+        console.error('Error saving message to database:', error.message);
+    }
 }
 
 // Export the functionality
