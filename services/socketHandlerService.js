@@ -35,12 +35,22 @@ function handleSocketConnection(socket, io) {
         handleDisconnect(socket, io);
     });
 
-    socket.on('message', async ({name, text}) => {
-        await handleMessage(socket, name, text, io);
+    socket.on('message', async ({name, recipientId, text, messageType, location}) => {
+        await handleMessage(socket, name, recipientId, text, io, messageType, location);
     });
 
     socket.on('activity', (name) => {
         handleActivity(socket, name);
+    });
+
+    socket.on('getConnectedUsers', async ({userId}) => {
+        const connectedUsers = await getConnectedUsers(userId, socket);
+        socket.emit('connectedUsers', connectedUsers);
+    });
+
+    socket.on('getChatHistory', async ({recipientId}) => {
+        const chatHistory = await getChatHistory(socket, recipientId);
+        socket.emit('chatHistory', chatHistory);
     });
 }
 
@@ -49,7 +59,7 @@ function handleSocketConnection(socket, io) {
  * @param {object} socket - The socket object representing the connection.
  */
 function welcomeUser(socket) {
-    socket.emit('message', buildMsg(ADMIN, "Welcome to Common Spots App!"));
+    // socket.emit('message', buildMsg(ADMIN, "Welcome to Common Spots App!"));
 }
 
 /**
@@ -81,13 +91,13 @@ async function handleRoomEntry(socket, io, email, password) {
 
         // If login successful, proceed with entering the room
         const token = data.token;
-        const room = 'default';
+        const room = data.userId;
         const name = data.userName;
-        const userID = data.userID;
-        const user = activateUser(socket.id, name, room, token, userID);
+        const userId = data.userId;
+        const user = activateUser(socket.id, name, room, token, userId);
         socket.join(user.room);
-        notifyUserJoined(socket, user);
-        updateUserName(socket, name);
+        // notifyUserJoined(socket, user);
+        updateUserName(socket, { name, userId });
     } catch (error) {
         console.error('Login error:', error.message);
         // Handle login error, e.g., emit an error event to the client
@@ -109,10 +119,10 @@ function notifyUserJoined(socket, user) {
 /**
  * Update new username.
  * @param {object} socket - The socket object representing the connection.
- * @param {string} name - The username.
+ * @param {object} user - The username.
  */
-function updateUserName(socket, name) {
-    socket.emit('updateUserName', buildMsg(name, 'Update user name'));
+function updateUserName(socket, user) {
+    socket.emit('updateUserName', buildMsg(user.name, 'Update user name', user.userId));
 }
 
 /**
@@ -137,11 +147,16 @@ function handleDisconnect(socket, io) {
  * @param {string} name - The name of the user.
  * @param {string} text - The text of the message.
  * @param {object} io - The Socket.IO server instance.
+ * @param messageType
+ * @param location
+ * @param recipientId
  */
-async function handleMessage(socket, name, text, io) {
-    const room = getUser(socket.id)?.room;
+async function handleMessage(socket, name, recipientId, text, io, messageType, location) {
+    const { room, userId: senderId } = getUser(socket.id);
     if (room) {
-        io.to(room).emit('message', buildMsg(name, text));
+        const chat = buildChat(messageType, text, location)
+        await saveMessageToDatabase(chat, recipientId, socket);
+        io.to(room).emit('message', buildMsg(name, text, senderId));
     }
 }
 
@@ -161,17 +176,34 @@ function handleActivity(socket, name) {
  * Builds a message object with provided name and text.
  * @param {string} name - The name of the user sending the message.
  * @param {string} text - The text of the message.
+ * @param {string} userId - The text of the message.
  * @returns {object} - The message object.
  */
-function buildMsg(name, text) {
+function buildMsg(name, text, userId = '') {
     return {
         name,
+        userId,
         text,
         time: new Intl.DateTimeFormat('default', {
             hour: 'numeric',
             minute: 'numeric',
             second: 'numeric'
         }).format(new Date())
+    };
+}
+
+/**
+ * Builds a message object with provided name and text.
+ * @param {string} messageType - The text of the message.
+ * @param {string} content - The text of the message.
+ * @param {array} location - The location of the message.
+ * @returns {object} - The message object.
+ */
+function buildChat(messageType = 'text', content, location = []) {
+    return {
+        content,
+        location,
+        messageType,
     };
 }
 
@@ -183,11 +215,11 @@ function buildMsg(name, text) {
  * @param {string} name - The name of the user.
  * @param {string} room - The room the user is joining.
  * @param {string} token - The token of the user.
- * @param {string} userID - UserID from mongoDB.
+ * @param {string} userId - UserId from mongoDB.
  * @returns {object} - The activated user object.
  */
-function activateUser(id, name, room, token, userID) {
-    const user = { id, name, room, token, userID };
+function activateUser(id, name, room, token, userId) {
+    const user = { id, name, room, token, userId };
     UsersState.setUsers([
         ...UsersState.users.filter(user => user.id !== id),
         user
@@ -218,7 +250,7 @@ function getUser(id) {
  * Retrieves connected users for a given user ID.
  * @param {string} userId - The ID of the user.
  * @param {object} socket - The socket object representing the connection.
- * @returns {Array} - An array of connected user IDs.
+ * @returns Promise<array[object]> - An array of connected user IDs.
  */
 async function getConnectedUsers(userId, socket) {
     const { token, userId: senderId } = getUser(socket.id);
@@ -231,7 +263,7 @@ async function getConnectedUsers(userId, socket) {
             },
         });
         const data = await response.json();
-        return data.connectedUsers.map(user => user._id);
+        return data.connectedUsers;
     } catch (error) {
         console.error('Error retrieving connected users:', error.message);
         return [];
@@ -240,26 +272,63 @@ async function getConnectedUsers(userId, socket) {
 
 /**
  * Saves a message to the database.
- * @param {object} messageBody - The name of the user sending the message.
- * @param {string} recipientId - The text of the message.
+ * @param {object} chat - The messageBody of the message.
+ * @param {string} recipientId - The recipient of the message.
  * @param {object} socket - The socket object representing the connection.
  */
-async function saveMessageToDatabase(messageBody, recipientId, socket) {
+async function saveMessageToDatabase(chat, recipientId, socket) {
     const { token, userId: senderId } = getUser(socket.id);
     try {
-        await fetch(`http://localhost:3200/api/v1/chats/${senderId}/${recipientId}`, {
+        const test = await fetch(`http://localhost:3200/api/v1/chats/${senderId}/${recipientId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({
-                messageBody,
+                body: JSON.stringify({
+                ...chat,
             }),
         });
+        console.log(`chat create status ${test.status}`)
     } catch (error) {
-        console.error('Error saving message to database:', error.message);
+        console.error('Error saving chat:', error.message);
     }
+}
+
+/**
+ * Get chat history between users.
+ * @param {object} socket - The socket object representing the connection.
+ * @returns Promise<array[object]> - An array of chats between users.
+ */
+async function getChatHistory(socket, recipientId) {
+    const { token, userId: senderId, name } = getUser(socket.id);
+    const room = sortAndConcat(senderId, recipientId);
+    const user = activateUser(socket.id, name, room, token, senderId);
+    socket.join(user.room);
+    try {
+        const response = await fetch(`http://localhost:3200/api/v1/chats/${senderId}/${recipientId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        const data = await response.json();
+        return data.data.chats;
+    } catch (error) {
+        console.error('Error retrieving chats:', error.message);
+        return [];
+    }
+}
+
+function sortAndConcat(senderId, recipientId) {
+    let name = recipientId + senderId;
+    const comparisonResult = senderId.localeCompare(recipientId);
+    if (comparisonResult < 0) {
+        name = senderId + recipientId;
+    }
+    return name
 }
 
 // Export the functionality

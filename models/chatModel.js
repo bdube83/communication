@@ -14,6 +14,12 @@ const chatSchema = new mongoose.Schema(
           ref: 'User',
           required: true
       },
+      senderName: {
+          type: String,
+      },
+      recipientName: {
+          type: String,
+      },
       messageType: {
           type: String,
           enum: ['text', 'location'],
@@ -37,6 +43,10 @@ const chatSchema = new mongoose.Schema(
               validate: [twoDimentionalcoordinates, 'Coordinates should contain lat and long values separated by a comma']
           },
       },
+      possibleCommonSpots: {
+          type: Object,
+          required: false,
+      }
   },
   {
     timestamps: true
