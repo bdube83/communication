@@ -28,8 +28,18 @@
 
     <form class="form-msg" style="display: none">
         <input type="text" id="message" placeholder="Your message" required>
+        <label for="locationCheckbox">Enable Location</label>
+        <input type="checkbox" id="locationCheckbox">
+        <div id="locationInputs" style="display: none;">
+            <label for="latitudeInput">Latitude</label>
+            <input type="text" id="latitudeInput" placeholder="Latitude">
+            <label for="longitudeInput">Longitude</label>
+            <input type="text" id="longitudeInput" placeholder="Longitude">
+        </div>
         <button type="submit">Send</button>
     </form>
+
+
 </main>
 </body>
 </html>
