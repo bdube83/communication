@@ -135,7 +135,7 @@ function handleDisconnect(socket, io) {
     userLeavesApp(socket.id);
 
     if (user) {
-        io.to(user.room).emit('message', buildMsg(ADMIN, `${user.name} has left the room`));
+        io.to(user.room).emit('message', buildMsg(ADMIN, `${user.name} is offline`));
     }
 
     console.log(`User ${socket.id} disconnected`);
@@ -155,8 +155,8 @@ async function handleMessage(socket, name, recipientId, text, io, messageType, l
     const { room, userId: senderId } = getUser(socket.id);
     if (room) {
         const chat = buildChat(messageType, text, location)
-        await saveMessageToDatabase(chat, recipientId, socket);
-        io.to(room).emit('message', buildMsg(name, text, senderId));
+        const response = await saveMessageToDatabase(chat, recipientId, socket);
+        io.to(room).emit('message', buildMsg(name, text, senderId, response?.data?.chat?.possibleCommonSpots));
     }
 }
 
@@ -177,9 +177,10 @@ function handleActivity(socket, name) {
  * @param {string} name - The name of the user sending the message.
  * @param {string} text - The text of the message.
  * @param {string} userId - The text of the message.
+ * @param {array} possibleCommonSpots - The common spot for a given location
  * @returns {object} - The message object.
  */
-function buildMsg(name, text, userId = '') {
+function buildMsg(name, text, userId = '', possibleCommonSpots = []) {
     return {
         name,
         userId,
@@ -188,7 +189,8 @@ function buildMsg(name, text, userId = '') {
             hour: 'numeric',
             minute: 'numeric',
             second: 'numeric'
-        }).format(new Date())
+        }).format(new Date()),
+        possibleCommonSpots,
     };
 }
 
@@ -200,9 +202,13 @@ function buildMsg(name, text, userId = '') {
  * @returns {object} - The message object.
  */
 function buildChat(messageType = 'text', content, location = []) {
+    const locationObj = { coordinates: [0,0] };
+    if (messageType === 'location'){
+        locationObj.coordinates = location;
+    }
     return {
         content,
-        location,
+        location: locationObj,
         messageType,
     };
 }
@@ -278,8 +284,9 @@ async function getConnectedUsers(userId, socket) {
  */
 async function saveMessageToDatabase(chat, recipientId, socket) {
     const { token, userId: senderId } = getUser(socket.id);
+    console.log(chat);
     try {
-        const test = await fetch(`http://localhost:3200/api/v1/chats/${senderId}/${recipientId}`, {
+        const response = await fetch(`http://localhost:3200/api/v1/chats/${senderId}/${recipientId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -289,7 +296,8 @@ async function saveMessageToDatabase(chat, recipientId, socket) {
                 ...chat,
             }),
         });
-        console.log(`chat create status ${test.status}`)
+        console.log(`chat create status ${response.status}`)
+        return await response.json();
     } catch (error) {
         console.error('Error saving chat:', error.message);
     }

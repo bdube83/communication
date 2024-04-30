@@ -70,10 +70,9 @@ const createChatByUsers = catchAsync(async (req, res, next) => {
       data: {chat}
     });
   } catch (err) {
-
-    res.status(400).json({
+    res.status(500).json({
       status: 'failed',
-      data: err.message
+      data: 'An internal error occurred.'
     });
   }
 });
