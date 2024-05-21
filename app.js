@@ -28,6 +28,11 @@ const limiter = rateLimit({
 
 app.use('/api', limiter)
 
+app.use((req, res, next) => {
+    res.setHeader('Content-Security-Policy', "default-src 'self'; style-src 'self' 'unsafe-inline' https://unpkg.com/; img-src 'self' data: *; script-src 'self' 'unsafe-inline' https://unpkg.com/;");
+    next();
+});
+
 app.use(express.json({ limit: '10kb'}));
 
 app.use(express.static(path.join(__dirname, "public")))

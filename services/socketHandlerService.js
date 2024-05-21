@@ -52,6 +52,16 @@ function handleSocketConnection(socket, io) {
         const chatHistory = await getChatHistory(socket, recipientId);
         socket.emit('chatHistory', chatHistory);
     });
+
+    socket.on('reportRoadCondition', async ({ type, description, location }) => {
+        const roadCondition = await reportRoadCondition(socket, type, description, location);
+        io.emit('roadConditions', roadCondition);
+    });
+
+    socket.on('getRoadConditions', async () => {
+        const roadCondition = await getRoadConditions(socket);
+        io.emit('roadConditions', roadCondition);
+    });
 }
 
 /**
@@ -327,6 +337,68 @@ async function getChatHistory(socket, recipientId) {
     } catch (error) {
         console.error('Error retrieving chats:', error.message);
         return [];
+    }
+}
+
+/**
+ * Reports a road condition to the backend API.
+ * @param {object} socket - The socket object representing the connection.
+ * @param {string} type - The type of road condition (e.g., pothole, gravel road).
+ * @param {string} description - Additional details about the road condition.
+ * @param {array} location - The location of the road condition (latitude and longitude coordinates).
+ * @returns {object|string} - The reported road condition object if successful, or an error message if failed.
+ */
+async function reportRoadCondition(socket, type, description, location) {
+    const { token } = getUser(socket.id);
+    try {
+        const response = await fetch('http://localhost:3000/api/v1/roadConditions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                type,
+                description,
+                location,
+            }),
+        });
+
+        if (!response.ok) {
+            return 'Failed to report road condition';
+        }
+
+        const res = await response.json();
+        return res.data.roadCondition;
+    } catch (error) {
+        return 'Failed to report road condition';
+    }
+}
+
+/**
+ * Retrieves road conditions from the backend API.
+ * @param {object} socket - The socket object representing the connection.
+ * @returns {object|string} - The retrieved road condition object if successful, or an error message if failed.
+ */
+async function getRoadConditions(socket) {
+    const { token } = getUser(socket.id);
+    try {
+        const response = await fetch('http://localhost:3000/api/v1/roadConditions', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            return 'Failed to retrieve road condition';
+        }
+
+        const res = await response.json();
+        return res.data.roadCondition;
+    } catch (error) {
+        return 'Failed to retrieve road condition';
     }
 }
 
