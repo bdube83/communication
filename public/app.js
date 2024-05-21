@@ -12,34 +12,58 @@ const chatDisplay = document.querySelector('.chat-display')
 const formMsgDisplay = document.querySelector('.form-msg');
 const formLoginDisplay = document.querySelector('.form-login');
 const userConnectionsDropdown = document.querySelector('#userConnections'); // Select the user connections dropdown
+const locationCheckbox = document.querySelector('#locationCheckbox');
+const latitudeInput = document.querySelector('#latitudeInput');
+const longitudeInput = document.querySelector('#longitudeInput');
+const roadConditionCheckbox = document.querySelector('#roadConditionCheckbox');
+const roadConditionType = document.querySelector('#roadConditionType');
+const chatContainer = document.querySelector('#chatContainer');
+
+
+// Initialize the map
+const map = L.map('map').setView([-29.8522845, 30.8551468], 20); // Set the initial view to a specific location and zoom level
+
+// Add a tile layer (you can use any tile provider)
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 
 function sendMessage(e) {
     e.preventDefault();
     if (nameInput && msgInput.value) {
-        const messageType = 'text'; // Default messageType
+        const messageType = 'text';
         let messageData = {
             name: nameInput,
             recipientId: recipientUserId,
             text: msgInput.value,
             messageType: messageType,
         };
+
         // Check if location is enabled
-        if (document.querySelector('#locationCheckbox').checked) {
-            const latitude = parseFloat(document.querySelector('#latitudeInput').value);
-            const longitude = parseFloat(document.querySelector('#longitudeInput').value);
-            // Check if latitude and longitude are valid numbers
+        if (locationCheckbox.checked) {
+            const latitude = parseFloat(latitudeInput.value);
+            const longitude = parseFloat(longitudeInput.value);
             if (!isNaN(latitude) && !isNaN(longitude)) {
-                messageData.location = [latitude, longitude]; // Set location coordinates
-                messageData.messageType = 'location'; // Update messageType to location
+                messageData.location = [latitude, longitude];
+                messageData.messageType = 'location';
             } else {
                 console.error('Invalid latitude or longitude input');
             }
         }
-        socket.emit('message', messageData);
+
+        // Check if road condition is enabled
+        if (roadConditionCheckbox.checked) {
+            const roadCondition = roadConditionType.value;
+            messageData.roadCondition = roadCondition;
+            socket.emit('reportRoadCondition', messageData.roadCondition, messageData.text, messageData.location);
+        } else {
+            socket.emit('message', messageData);
+        }
         msgInput.value = "";
     }
     msgInput.focus();
 }
+
 
 function enterRoom(e) {
     e.preventDefault()
@@ -64,9 +88,18 @@ msgInput.addEventListener('keypress', () => {
 document.querySelector('#locationCheckbox').addEventListener('change', function() {
     const locationInputs = document.querySelector('#locationInputs');
     if (this.checked) {
-        locationInputs.style.display = 'block'; // Show location inputs
+        locationInputs.style.display = 'block';
     } else {
-        locationInputs.style.display = 'none'; // Hide location inputs
+        locationInputs.style.display = 'none';
+    }
+});
+
+document.querySelector('#roadConditionCheckbox').addEventListener('change', function() {
+    const roadConditionInputs = document.querySelector('#roadConditionInputs');
+    if (this.checked) {
+        roadConditionInputs.style.display = 'block';
+    } else {
+        roadConditionInputs.style.display = 'none';
     }
 });
 
@@ -112,6 +145,15 @@ socket.on("message", (data) => {
                 </div>
                 <div class="post__text">${commonSpot?.name}</div>`
             chatDisplay.appendChild(li);
+            // Extract latitude and longitude from the road condition object
+            const { location, name: placeName, description } = commonSpot;
+            console.log(location, placeName, description);
+
+            // Create a marker for the road condition
+            const marker = L.marker([location.coordinates[1], location.coordinates[0]]).addTo(map);
+
+            // Add a popup with road condition details
+            marker.bindPopup(`<b>${placeName}</b><br>${description}`).openPopup();
         });
     }
 
@@ -158,8 +200,18 @@ socket.on("chatHistory", (history) => {
                 <span class="post__header--name">Common Spot</span>
                 </div>
                 <div class="post__text">${commonSpot?.name}</div>`
+
                 // console.log(commonSpot?.name);
                 chatDisplay.appendChild(li);
+                // Extract latitude and longitude from the road condition object
+                const { location, name, description } = commonSpot;
+                console.log(location, name, description);
+
+                // Create a marker for the road condition
+                const marker = L.marker([location.coordinates[1], location.coordinates[0]]).addTo(map);
+
+                // Add a popup with road condition details
+                marker.bindPopup(`<b>${name}</b><br>${description}`).openPopup();
             });
         }
     });
@@ -207,6 +259,7 @@ socket.on('connectedUsers', (connections) => {
     recipientUserId = connections[0]?._id;
 
     userConnectionsDropdown.style.display = 'block'; // Show the drop-down after populating options
+    chatContainer.style.display = 'block'; // Show chat screen
 });
 
 

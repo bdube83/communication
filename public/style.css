@@ -15,7 +15,7 @@ main {
     height: 100vh;
     padding: 1rem;
     display: flex;
-    flex-flow: column;
+    flex-flow: row nowrap;
 }
 
 form {
@@ -162,4 +162,37 @@ button[type="submit"] {
 button[type="submit"]:hover {
     background-color: #0056b3;
 }
+
+.map-container {
+    width: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #000;
+    padding: 1rem;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+.chat-container {
+    width: 50%;
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: space-between;
+    background-color: #333;
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.chat-display {
+    flex-grow: 1;
+    list-style-type: none;
+    overflow-y: auto;
+    padding: 0;
+}
+
+/* Other chat UI element styles */
 
