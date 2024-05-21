@@ -52,6 +52,16 @@ function handleSocketConnection(socket, io) {
         const chatHistory = await getChatHistory(socket, recipientId);
         socket.emit('chatHistory', chatHistory);
     });
+
+    socket.on('reportRoadCondition', async ({ type, description, location }) => {
+        const roadCondition = await reportRoadCondition(socket, type, description, location);
+        io.emit('roadConditions', roadCondition);
+    });
+
+    socket.on('getReportRoadConditions', async () => {
+        const roadCondition = await getReportRoadConditions(socket);
+        io.emit('roadConditions', roadCondition);
+    });
 }
 
 /**
@@ -329,6 +339,56 @@ async function getChatHistory(socket, recipientId) {
         return [];
     }
 }
+
+async function reportRoadCondition(socket, type, description, location) {
+    const { token } = getUser(socket.id);
+    try {
+        const response = await fetch('http://localhost:3000/api/v1/roadConditions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                type,
+                description,
+                location,
+            }),
+        });
+
+        if (!response.ok) {
+            return 'Failed to report road condition';
+        }
+
+        const res = await response.json();
+        return res.data.roadCondition;
+    } catch (error) {
+        return 'Failed to report road condition';
+    }
+}
+
+async function reportRoadCondition(socket) {
+    const { token } = getUser(socket.id);
+    try {
+        const response = await fetch('http://localhost:3000/api/v1/roadConditions', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            return 'Failed to retrieve road condition';
+        }
+
+        const res = await response.json();
+        return res.data.roadCondition;
+    } catch (error) {
+        return 'Failed to retrieve road condition';
+    }
+}
+
 
 function sortAndConcat(senderId, recipientId) {
     let name = recipientId + senderId;
