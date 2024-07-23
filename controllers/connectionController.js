@@ -9,14 +9,18 @@ const User = require('./../models/userModel')
  */
 const addConnection = async (req, res) => {
     try {
-        const { user1Id, user2Id } = req.body;
+        const { user1Id, contactNumberUser2 } = req.body;
 
         // Check if both users exist
         const user1 = await User.findById(user1Id);
-        const user2 = await User.findById(user2Id);
+        const user2 = await User.findOne({
+            contactNumber: contactNumberUser2
+        })
         if (!user1 || !user2) {
             return res.status(404).json({ message: 'One or both users not found' });
         }
+
+        const user2Id = user2._id;
 
         // Check if a connection already exists between the users
         const existingConnection = await Connection.findOne({
