@@ -82,7 +82,7 @@ function welcomeUser(socket) {
 async function handleRoomEntry(socket, io, email, password) {
     try {
         // Make the login request
-        const response = await fetch('http://localhost:3000/api/v1/users/login', {
+        const response = await fetch('http://localhost:8080/api/v1/users/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
