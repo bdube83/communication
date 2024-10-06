@@ -82,7 +82,7 @@ function welcomeUser(socket) {
 async function handleRoomEntry(socket, io, email, password) {
     try {
         // Make the login request
-        const response = await fetch('http://localhost:3000/api/v1/users/login', {
+        const response = await fetch('http://localhost:8080/api/v1/users/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -104,7 +104,8 @@ async function handleRoomEntry(socket, io, email, password) {
         const room = data.userId;
         const name = data.userName;
         const userId = data.userId;
-        const user = activateUser(socket.id, name, room, token, userId);
+        const commonSpotId = data.commonSpot
+        const user = activateUser(socket.id, name, room, token, userId, commonSpotId);
         socket.join(user.room);
         // notifyUserJoined(socket, user);
         updateUserName(socket, { name, userId });
@@ -234,8 +235,8 @@ function buildChat(messageType = 'text', content, location = []) {
  * @param {string} userId - UserId from mongoDB.
  * @returns {object} - The activated user object.
  */
-function activateUser(id, name, room, token, userId) {
-    const user = { id, name, room, token, userId };
+function activateUser(id, name, room, token, userId, commonSpotId) {
+    const user = { id, name, room, token, userId, commonSpotId };
     UsersState.setUsers([
         ...UsersState.users.filter(user => user.id !== id),
         user
@@ -319,9 +320,9 @@ async function saveMessageToDatabase(chat, recipientId, socket) {
  * @returns Promise<array[object]> - An array of chats between users.
  */
 async function getChatHistory(socket, recipientId) {
-    const { token, userId: senderId, name } = getUser(socket.id);
+    const { token, userId: senderId, name, commonSpotId } = getUser(socket.id);
     const room = sortAndConcat(senderId, recipientId);
-    const user = activateUser(socket.id, name, room, token, senderId);
+    const user = activateUser(socket.id, name, room, token, senderId, commonSpotId);
     socket.join(user.room);
     try {
         const response = await fetch(`http://localhost:3200/api/v1/chats/${senderId}/${recipientId}`, {
