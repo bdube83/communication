@@ -104,11 +104,11 @@ async function handleRoomEntry(socket, io, email, password) {
         const room = data.userId;
         const name = data.userName;
         const userId = data.userId;
-        const commonSpotId = data.commonSpot
+        const commonSpotId = data.commonSpotId;
         const user = activateUser(socket.id, name, room, token, userId, commonSpotId);
         socket.join(user.room);
         // notifyUserJoined(socket, user);
-        updateUserName(socket, { name, userId });
+        updateUserName(socket, { name, userId, commonSpotId });
     } catch (error) {
         console.error('Login error:', error.message);
         // Handle login error, e.g., emit an error event to the client
@@ -133,7 +133,7 @@ function notifyUserJoined(socket, user) {
  * @param {object} user - The username.
  */
 function updateUserName(socket, user) {
-    socket.emit('updateUserName', buildMsg(user.name, 'Update user name', user.userId));
+    socket.emit('updateUserName', buildMsg(user.name, 'Update user name', user.userId, user.commonSpotId));
 }
 
 /**
@@ -167,7 +167,7 @@ async function handleMessage(socket, name, recipientId, text, io, messageType, l
     if (room) {
         const chat = buildChat(messageType, text, location)
         const response = await saveMessageToDatabase(chat, recipientId, socket);
-        io.to(room).emit('message', buildMsg(name, text, senderId, response?.data?.chat?.possibleCommonSpots));
+        io.to(room).emit('message', buildMsg(name, text, senderId));
     }
 }
 
@@ -191,11 +191,12 @@ function handleActivity(socket, name) {
  * @param {array} possibleCommonSpots - The common spot for a given location
  * @returns {object} - The message object.
  */
-function buildMsg(name, text, userId = '', possibleCommonSpots = []) {
+function buildMsg(name, text, userId = '', commonSpotId = null, possibleCommonSpots = []) {
     return {
         name,
         userId,
         text,
+        commonSpotId,
         time: new Intl.DateTimeFormat('default', {
             hour: 'numeric',
             minute: 'numeric',
